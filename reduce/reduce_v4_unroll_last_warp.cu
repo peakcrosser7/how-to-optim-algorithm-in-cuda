@@ -1,9 +1,10 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <time.h>
+#include <iostream>
 
 #define N 32*1024*1024
-#define BLOCK_SIZE 256
+#define BLOCK_SIZE 1024
 
 __device__ void warpReduce(volatile float* cache, unsigned int tid){
     cache[tid]+=cache[tid+32];
@@ -52,6 +53,11 @@ int main() {
     dim3 block(BLOCK_SIZE, 1);
     reduce_v4<<<grid, block>>>(input_device, output_device);
     cudaMemcpy(output_host, output_device, block_num * sizeof(float), cudaMemcpyDeviceToHost);
+    for (int i = 0; i < min(block_num, 30); ++i) {
+        std::cout << output_host[i] << ' ';
+    }
+    std::cout << std::endl;
+
     return 0;
 }
 

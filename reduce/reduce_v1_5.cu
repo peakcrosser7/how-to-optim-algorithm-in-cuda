@@ -1,23 +1,22 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <time.h>
-#include <iostream>
 
 #define N 32*1024*1024
 #define BLOCK_SIZE 256
 
-__global__ void reduce_v3(float *g_idata,float *g_odata){
+__global__ void reduce_v0(float *g_idata,float *g_odata){
     __shared__ float sdata[BLOCK_SIZE];
 
     // each thread loads one element from global to shared mem
     unsigned int tid = threadIdx.x;
-    unsigned int i = blockIdx.x*(blockDim.x*2) + threadIdx.x;
-    sdata[tid] = g_idata[i] + g_idata[i + blockDim.x];
+    unsigned int i = blockIdx.x*blockDim.x + threadIdx.x;
+    sdata[tid] = g_idata[i];
     __syncthreads();
 
     // do reduction in shared mem
-    for(unsigned int s=blockDim.x/2; s>0; s >>= 1) {
-        if (tid < s){
+    for(unsigned int s=1; s < blockDim.x; s *= 2) {
+        if ((tid & (2*s-1)) == 0) {
             sdata[tid] += sdata[tid + s];
         }
         __syncthreads();
@@ -34,19 +33,14 @@ int main() {
     for (int i = 0; i < N; i++) input_host[i] = 2.0;
     cudaMemcpy(input_device, input_host, N*sizeof(float), cudaMemcpyHostToDevice);
 
-    int32_t block_num = (N + BLOCK_SIZE - 1) / BLOCK_SIZE / 2;
-    float *output_host = (float*)malloc((block_num) * sizeof(float));
+    int32_t block_num = (N + BLOCK_SIZE - 1) / BLOCK_SIZE;
+    float *output_host = (float*)malloc((N / BLOCK_SIZE) * sizeof(float));
     float *output_device;
-    cudaMalloc((void **)&output_device, (block_num) * sizeof(float));
+    cudaMalloc((void **)&output_device, (N / BLOCK_SIZE) * sizeof(float));
     
-    dim3 grid(block_num, 1);
+    dim3 grid(N / BLOCK_SIZE, 1);
     dim3 block(BLOCK_SIZE, 1);
-    reduce_v3<<<grid, block>>>(input_device, output_device);
+    reduce_v0<<<grid, block>>>(input_device, output_device);
     cudaMemcpy(output_host, output_device, block_num * sizeof(float), cudaMemcpyDeviceToHost);
-    for (int i = 0; i < min(block_num, 30); ++i) {
-        std::cout << output_host[i] << ' ';
-    }
-    std::cout << std::endl;
-
     return 0;
 }

@@ -6,7 +6,23 @@
 #define N 32*1024*1024
 #define BLOCK_SIZE 256
 
-__global__ void reduce_v3(float *g_idata,float *g_odata){
+__device__ void warpReduce(float* cache, unsigned int tid){
+    int v = cache[tid];
+    v += cache[tid+32]; __syncwarp();
+    cache[tid] = v;     __syncwarp();
+    v += cache[tid+16]; __syncwarp();
+    cache[tid] = v;     __syncwarp();
+    v += cache[tid+8];  __syncwarp();
+    cache[tid] = v;     __syncwarp();
+    v += cache[tid+4];  __syncwarp();
+    cache[tid] = v;     __syncwarp();
+    v += cache[tid+2];  __syncwarp();
+    cache[tid] = v;     __syncwarp();
+    v += cache[tid+1];  __syncwarp();
+    cache[tid] = v;
+}
+
+__global__ void reduce_v4_1(float *g_idata,float *g_odata){
     __shared__ float sdata[BLOCK_SIZE];
 
     // each thread loads one element from global to shared mem
@@ -16,7 +32,7 @@ __global__ void reduce_v3(float *g_idata,float *g_odata){
     __syncthreads();
 
     // do reduction in shared mem
-    for(unsigned int s=blockDim.x/2; s>0; s >>= 1) {
+    for(unsigned int s=blockDim.x/2; s>32; s >>= 1) {
         if (tid < s){
             sdata[tid] += sdata[tid + s];
         }
@@ -24,6 +40,7 @@ __global__ void reduce_v3(float *g_idata,float *g_odata){
     }
 
     // write result for this block to global mem
+    if (tid < 32) warpReduce(sdata, tid);
     if (tid == 0) g_odata[blockIdx.x] = sdata[0];
 }
 
@@ -41,7 +58,7 @@ int main() {
     
     dim3 grid(block_num, 1);
     dim3 block(BLOCK_SIZE, 1);
-    reduce_v3<<<grid, block>>>(input_device, output_device);
+    reduce_v4_1<<<grid, block>>>(input_device, output_device);
     cudaMemcpy(output_host, output_device, block_num * sizeof(float), cudaMemcpyDeviceToHost);
     for (int i = 0; i < min(block_num, 30); ++i) {
         std::cout << output_host[i] << ' ';
@@ -50,3 +67,5 @@ int main() {
 
     return 0;
 }
+
+

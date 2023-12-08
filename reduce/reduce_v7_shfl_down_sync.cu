@@ -62,7 +62,7 @@ int main(){
     float *d_a;
     cudaMalloc((void **)&d_a,N*sizeof(float));
 
-    const int block_num = 1024;
+    const int block_num = 2048;
     const int NUM_PER_BLOCK = N / block_num;
     const int NUM_PER_THREAD = NUM_PER_BLOCK / BLOCK_SIZE;
     float *out=(float *)malloc(block_num*sizeof(float));

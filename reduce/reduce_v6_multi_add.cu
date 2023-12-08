@@ -61,7 +61,7 @@ int main() {
     for (int i = 0; i < N; i++) input_host[i] = 2.0;
     cudaMemcpy(input_device, input_host, N*sizeof(float), cudaMemcpyHostToDevice);
 
-    const int block_num = 1024;
+    const int block_num = 2048;
     const int NUM_PER_BLOCK = N / block_num;
     const int NUM_PER_THREAD = NUM_PER_BLOCK / BLOCK_SIZE;
     float *output_host = (float*)malloc((block_num) * sizeof(float));
