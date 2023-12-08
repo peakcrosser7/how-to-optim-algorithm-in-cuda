@@ -1,2 +1,2 @@
 all:
-	/usr/local/cuda/bin/nvcc -arch=sm_80  -o bin/elementwise elementwise.cu
+	nvcc -arch=sm_70  -o elementwise elementwise.cu
